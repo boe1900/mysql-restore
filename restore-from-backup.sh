@@ -56,6 +56,8 @@ log "Selected full backup: ${LATEST_FULL}"
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}/base"
 cp -a "${LATEST_FULL}/." "${WORK_DIR}/base/"
+chmod -R u+rwX "${WORK_DIR}/base" || true
+[ -f "${WORK_DIR}/base/backup-my.cnf" ] && chmod 600 "${WORK_DIR}/base/backup-my.cnf" || true
 
 log "Preparing base full backup..."
 xtrabackup --prepare --apply-log-only --target-dir="${WORK_DIR}/base"
@@ -73,11 +75,26 @@ mapfile -t INCREMENTALS < <(
 if [ "${#INCREMENTALS[@]}" -eq 0 ]; then
   log "No incremental backups found in this cycle."
 else
+  mkdir -p "${WORK_DIR}/incrementals"
   for inc in "${INCREMENTALS[@]}"; do
+    inc_name="$(basename "${inc}")"
+    inc_local="${WORK_DIR}/incrementals/${inc_name}"
+    log "Staging incremental backup to writable workspace: ${inc_name}"
+    rm -rf "${inc_local}"
+    mkdir -p "${inc_local}"
+    cp -a "${inc}/." "${inc_local}/"
+    chmod -R u+rwX "${inc_local}" || true
+    [ -f "${inc_local}/backup-my.cnf" ] && chmod 600 "${inc_local}/backup-my.cnf" || true
+
+    if [ ! -f "${inc_local}/xtrabackup_checkpoints" ]; then
+      log "Invalid incremental backup (missing xtrabackup_checkpoints): ${inc}"
+      exit 1
+    fi
+
     log "Applying incremental backup: ${inc}"
     xtrabackup --prepare --apply-log-only \
       --target-dir="${WORK_DIR}/base" \
-      --incremental-dir="${inc}"
+      --incremental-dir="${inc_local}"
   done
 fi
 
