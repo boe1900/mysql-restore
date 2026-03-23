@@ -1,7 +1,6 @@
 services:
   mysql-restore-init:
     image: percona/percona-xtrabackup:2.4.28
-    container_name: mysql-restore-init
     restart: "no"
     environment:
       BACKUP_BASE_DIR: /backups
@@ -18,7 +17,6 @@ services:
 
   mysql-restore:
     image: mysql:5.7.44
-    container_name: mysql-restore
     depends_on:
       mysql-restore-init:
         condition: service_completed_successfully
@@ -41,4 +39,3 @@ services:
 
 volumes:
   mysql-restore-data:
-    name: ${MYSQL_RESTORE_VOLUME:-mysql_restore_data}

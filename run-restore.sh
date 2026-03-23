@@ -66,6 +66,9 @@ export MYSQL_RESTORE_PORT
 export TARGET_FULL_BACKUP
 export RESET_DATA
 
+# Clean up legacy fixed-name containers from old compose versions.
+docker rm -f mysql-restore-init mysql-restore >/dev/null 2>&1 || true
+
 docker compose -f "${COMPOSE_FILE}" down >/dev/null 2>&1 || true
 
 docker compose -f "${COMPOSE_FILE}" up \
