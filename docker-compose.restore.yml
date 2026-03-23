@@ -1,0 +1,44 @@
+services:
+  mysql-restore-init:
+    image: percona/percona-xtrabackup:2.4.28
+    container_name: mysql-restore-init
+    restart: "no"
+    environment:
+      BACKUP_BASE_DIR: /backups
+      RESTORE_DATA_DIR: /var/lib/mysql
+      TARGET_FULL_BACKUP: ${TARGET_FULL_BACKUP:-}
+      RESET_DATA: ${RESET_DATA:-false}
+      MYSQL_UID: ${MYSQL_UID:-999}
+      MYSQL_GID: ${MYSQL_GID:-999}
+    volumes:
+      - ${BACKUP_DIR:-./data/mysql_backups}:/backups:ro
+      - mysql-restore-data:/var/lib/mysql
+      - ./restore-from-backup.sh:/usr/local/bin/restore-from-backup.sh:ro
+    entrypoint: ["/bin/bash", "/usr/local/bin/restore-from-backup.sh"]
+
+  mysql-restore:
+    image: mysql:5.7.44
+    container_name: mysql-restore
+    depends_on:
+      mysql-restore-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-my_password}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - mysql-restore-data:/var/lib/mysql
+    ports:
+      - "${MYSQL_RESTORE_PORT:-3307}:3306"
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --explicit_defaults_for_timestamp=true
+      - --lower_case_table_names=1
+      - --max_allowed_packet=128M
+      - --sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION
+
+volumes:
+  mysql-restore-data:
+    name: ${MYSQL_RESTORE_VOLUME:-mysql_restore_data}
